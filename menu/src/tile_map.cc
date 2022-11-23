@@ -1,28 +1,53 @@
 ﻿#include <SFML/Graphics.hpp>
 #include <iostream>
 
+#include "util.h"
+
 namespace geom_2d {
+
+enum class SNAKE_INDEX {
+  APPLE = 15,
+  EMPTY = 6,
+
+  BODY_HOR = 1,
+  BODY_VER = 7,
+
+  HEAD_TOP = 3,
+  HEAD_BTM = 9,
+  HEAD_LFT = 8,
+  HEAD_RHT = 4,
+
+  TAIL_TOP = 19,
+  TAIL_BTM = 13,
+  TAIL_LFT = 14,
+  TAIL_RHT = 18,
+
+  TURN_TL = 0,
+  TURN_TR = 2,
+  TURN_BL = 5,
+  TURN_BR = 12
+};
 
 class TileMap : public sf::Drawable, public sf::Transformable {
   sf::VertexArray vertices_;
   sf::Texture tileset_;
 
  public:
-  bool load(const std::string& tileset, const sf::Vector2u ts,
-            const std::vector<int>& tiles, const uint32_t width,
-            const uint32_t height) {
-    // load the tileset texture
-    if (!tileset_.loadFromFile(tileset)) return false;
+  TileMap(const sf::Texture& tileset, const sf::Vector2u ts,
+          const std::vector<SNAKE_INDEX>& tiles, const uint32_t width,
+          const uint32_t height)
+      : tileset_(tileset) {
+    tileset_.setSmooth(true);
 
     // resize the vertex array to fit the level size
     vertices_.setPrimitiveType(sf::Quads);
     vertices_.resize(width * height * 4);
 
     // populate the vertex array, with one quad per tile
-    for (uint32_t i = 0; i < width; ++i)
+    for (uint32_t i = 0; i < width; ++i) {
       for (uint32_t j = 0; j < height; ++j) {
         // get the current tile number
-        int tileNumber = tiles[i + j * width];
+        int tileNumber = static_cast<int>(tiles[i + j * width]);
 
         // find its position in the tileset texture
         int tu = tileNumber % (tileset_.getSize().x / ts.x);
@@ -43,8 +68,7 @@ class TileMap : public sf::Drawable, public sf::Transformable {
         quad[2].texCoords = sf::Vector2f((tu + 1) * ts.x, (tv + 1) * ts.y);
         quad[3].texCoords = sf::Vector2f(tu * ts.x, (tv + 1) * ts.y);
       }
-
-    return true;
+    }
   }
 
  private:

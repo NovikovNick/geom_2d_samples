@@ -1,4 +1,4 @@
-﻿FILE(COPY "font.ttf" DESTINATION "${CMAKE_BINARY_DIR}/menu/resources")
+﻿FILE(COPY "title_fnt.ttf" DESTINATION "${CMAKE_BINARY_DIR}/menu/resources")
+FILE(COPY "default_fnt.otf" DESTINATION "${CMAKE_BINARY_DIR}/menu/resources")
+FILE(COPY "snake_sprite_sheet.png" DESTINATION "${CMAKE_BINARY_DIR}/menu/resources")
 FILE(COPY "click.wav" DESTINATION "${CMAKE_BINARY_DIR}/menu/resources")
-FILE(COPY "running_sprite.png" DESTINATION "${CMAKE_BINARY_DIR}/menu/resources")
-FILE(COPY "graphics-vertex-array-tilemap-tileset.png" DESTINATION "${CMAKE_BINARY_DIR}/menu/resources")

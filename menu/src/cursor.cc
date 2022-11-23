@@ -7,14 +7,15 @@ class Cursor final : public sf::Shape {
   sf::VertexArray vertices_;
 
  public:
-  Cursor(const uint32_t size) : vertices_(sf::VertexArray(sf::Triangles, 3)) {
+  Cursor(const uint32_t size, sf::Color color)
+      : vertices_(sf::VertexArray(sf::Triangles, 3)) {
     vertices_[0].position = sf::Vector2f(0, 0);
-    vertices_[1].position = sf::Vector2f(0, size);
-    vertices_[2].position = sf::Vector2f(size / 2, size / 2);
+    vertices_[1].position = sf::Vector2f(size * .3f, size);
+    vertices_[2].position = sf::Vector2f(size * .9f, size * .5f);
 
-    vertices_[0].color = sf::Color::Red;
-    vertices_[1].color = sf::Color::Blue;
-    vertices_[2].color = sf::Color::Green;
+    vertices_[0].color = color;
+    vertices_[1].color = color;
+    vertices_[2].color = color;
   }
   sf::FloatRect getBounds() {
     auto [top, left, _, __] = getGlobalBounds();
