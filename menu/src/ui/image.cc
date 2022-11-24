@@ -5,16 +5,16 @@
 
 namespace geom_2d {
 
-class Label final : public Groupable {
+class Image final : public Groupable {
  public:
-  sf::Text label;
-  Label(const sf::Text& label) : label(label) {}
+  sf::Sprite sprite;
+  Image(const sf::Texture& texture) : sprite(sf::Sprite(texture)) {}
 
   virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
     Groupable::draw(target, states);
   }
   virtual void onDraw(sf::RenderTarget& target, sf::RenderStates states) const {
-    target.draw(label, states);
+    target.draw(sprite, states);
   }
 
   virtual std::size_t getPointCount() const { return 0; }

@@ -11,6 +11,7 @@ namespace geom_2d {
 class ResourceManager {
   sf::Font default_fnt, title_fnt;
   sf::Texture snake_sprite_sheet;
+  sf::Texture key_arrows_texture;
   sf::SoundBuffer click;
 
  public:
@@ -24,6 +25,10 @@ class ResourceManager {
     if (!snake_sprite_sheet.loadFromFile("resources/snake_sprite_sheet.png"))
       debug("Unable to load running_sprite.png!\n");
 
+    if (!key_arrows_texture.loadFromFile("resources/key_arrows.png"))
+      debug("Unable to load key_arrows.png!\n");
+    key_arrows_texture.setSmooth(true);
+
     if (!click.loadFromFile("resources/click.wav"))
       debug("Unable to load click.wav!\n");
   };
@@ -32,6 +37,7 @@ class ResourceManager {
   inline sf::Font& GetDefaultFont() & { return default_fnt; }
   inline sf::Texture& GetSnakeSpriteSheet() & { return snake_sprite_sheet; }
   inline sf::SoundBuffer& GetClickSoundBuffer() & { return click; }
+  inline sf::Texture& GetKeyArrowsTexture() & { return key_arrows_texture; }
 };
 
 };      // namespace geom_2d

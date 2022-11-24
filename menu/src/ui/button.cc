@@ -23,17 +23,16 @@ class Button final : public Groupable {
         onClick(nullptr) {}
 
   virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
-    Groupable::draw(target, sf::Transform::Identity);
+    Groupable::draw(target, states);
   }
 
-  virtual void onDraw(sf::RenderTarget& target,
-                      const sf::Transform& transform) const {
+  virtual void onDraw(sf::RenderTarget& target, sf::RenderStates states) const {
     if (hover) {
-      target.draw(on_hover_form, transform);
+      target.draw(on_hover_form, states);
     } else {
-      target.draw(form, transform);
+      target.draw(form, states);
     }
-    target.draw(label, transform);
+    target.draw(label, states);
   }
 
   void setHover(bool val) {

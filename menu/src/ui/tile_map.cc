@@ -1,7 +1,8 @@
 ﻿#include <SFML/Graphics.hpp>
 #include <iostream>
 
-#include "util.h"
+#include "../util.h"
+#include "groupable.cc"
 
 namespace geom_2d {
 
@@ -28,7 +29,7 @@ enum class SNAKE_INDEX {
   TURN_BR = 12
 };
 
-class TileMap : public sf::Drawable, public sf::Transformable {
+class TileMap : public Groupable {
   sf::VertexArray vertices_;
   sf::Texture tileset_;
 
@@ -67,21 +68,40 @@ class TileMap : public sf::Drawable, public sf::Transformable {
         quad[1].texCoords = sf::Vector2f((tu + 1) * ts.x, tv * ts.y);
         quad[2].texCoords = sf::Vector2f((tu + 1) * ts.x, (tv + 1) * ts.y);
         quad[3].texCoords = sf::Vector2f(tu * ts.x, (tv + 1) * ts.y);
+
+        /*quad[0].color = sf::Color::Blue;
+        quad[1].color = sf::Color::Blue;
+        quad[2].color = sf::Color::Blue;
+        quad[3].color = sf::Color::Blue;*/
       }
     }
   }
 
- private:
   virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
+    Groupable::draw(target, states);
+  }
+
+  virtual void onDraw(sf::RenderTarget& target, sf::RenderStates states) const {
     // apply the transform
     states.transform *= getTransform();
-    states.transform.scale(0.8f, 0.8f);
+    states.transform.scale(0.7f, 0.7f);
+
     // apply the tileset texture
     states.texture = &tileset_;
 
     // draw the vertex array
     target.draw(vertices_, states);
   }
+
+  virtual std::size_t getPointCount() const { return 0; }
+  virtual sf::Vector2f getPoint(std::size_t index) const { return {}; }
+
+  virtual void draw(sf::RenderTarget& target,
+                    const sf::Transform& transform) const {
+    Groupable::draw(target, sf::Transform::Identity);
+  }
+  virtual void onDraw(sf::RenderTarget& target,
+                      const sf::Transform& transform) const {}
 };
 
 };  // namespace geom_2d

@@ -10,12 +10,11 @@
 #include "src/cursor.cc"
 #include "src/layout_service.h"
 #include "src/resource_manager.h"
-#include "src/tile_map.cc"
 #include "src/util.h"
 
 // todo:
-// 1. game screen => win/lose screen
-// 3. Screen transition + multithreading
+// 1. win/lose layout
+// 2. layout transition + multithreading
 
 int main() {
   using namespace geom_2d;
@@ -24,13 +23,13 @@ int main() {
   sf::ContextSettings settings;
   settings.antialiasingLevel = 8;
 
-  auto mode = sf::VideoMode(1200, 800);
-  auto style = sf::Style::Default;
+  auto mode = sf::VideoMode(1100, 730);
+  auto style = sf::Style::Fullscreen;
   sf::RenderWindow window(mode, L"Змейка v0.2", style, settings);
   // Never use both setVerticalSyncEnabled and setFramerateLimit at the same
   // time!
   window.setVerticalSyncEnabled(true);
-  // window.setFramerateLimit(24);
+  // window.setFramerateLimit(4);
   window.setMouseCursorVisible(false);
 
   // 2. init services
@@ -44,26 +43,10 @@ int main() {
   sf::Sound click_sound(resource_mng->GetClickSoundBuffer());
   click_sound.setVolume(30.0f);
 
-  // tile map
-  std::vector<SNAKE_INDEX> level(16 * 16, SNAKE_INDEX::APPLE);
-  for (int i = 0; i < 16; ++i) {
-    level[i] = SNAKE_INDEX::BODY_HOR;
-    level[i * 16] = SNAKE_INDEX::BODY_VER;
-    level[i + 15 * 16] = SNAKE_INDEX::BODY_HOR;
-    level[i * 16 + 15] = SNAKE_INDEX::BODY_VER;
-
-    level[0] = SNAKE_INDEX::TURN_TL;
-    level[15] = SNAKE_INDEX::TURN_TR;
-    level[15 * 16] = SNAKE_INDEX::TURN_BL;
-    level[16 * 16 - 1] = SNAKE_INDEX::TURN_BR;
-  }
-
-  TileMap map(resource_mng->GetSnakeSpriteSheet(), sf::Vector2u(64, 64), level,
-              16, 16);
-  map.setPosition(447, 24);
-
+  // 4. state
   bool is_menu_screen = true;
 
+  // 5. event handling
   layout_srv->start_btn->onHover = [&click_sound](const Button& b) {
     click_sound.play();
   };
@@ -77,6 +60,7 @@ int main() {
   };
   layout_srv->exit_btn->onClick = [&window]() { window.close(); };
 
+  // 6. main loop
   int frame = 0;
   while (window.isOpen()) {
     auto t0 = std::chrono::steady_clock::now();
@@ -112,7 +96,7 @@ int main() {
         case sf::Event::MouseMoved:
           auto [x, y] = event.mouseMove;
           cursor.setPosition(x, y);
-
+          // layout_srv->game_title_lbl->setPosition(x, y);
           auto bounds = cursor.getBounds();
 
           if (is_menu_screen) {
@@ -132,9 +116,8 @@ int main() {
     if (is_menu_screen) {
       window.draw(*layout_srv->menu);
     } else {
-      window.draw(map);
+      window.draw(*layout_srv->game_layout);
     }
-
     window.draw(cursor);
 
     window.display();
