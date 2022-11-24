@@ -36,6 +36,5 @@ class Cursor final : public sf::Shape {
     target.draw(vertices_, states);
   }
 };
-
 }  // namespace geom_2d
 

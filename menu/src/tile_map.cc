@@ -75,7 +75,7 @@ class TileMap : public sf::Drawable, public sf::Transformable {
   virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
     // apply the transform
     states.transform *= getTransform();
-
+    states.transform.scale(0.8f, 0.8f);
     // apply the tileset texture
     states.texture = &tileset_;
 
