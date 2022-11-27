@@ -6,6 +6,10 @@
 namespace geom_2d {
 
 class Layout final : public Groupable {
+ public:
+  bool active;
+  std::vector<std::shared_ptr<Button>> buttons;
+
   virtual void draw(sf::RenderTarget& target, sf::RenderStates states) const {
     Groupable::draw(target, states);
   }

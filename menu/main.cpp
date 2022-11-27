@@ -12,10 +12,6 @@
 #include "src/resource_manager.h"
 #include "src/util.h"
 
-// todo:
-// 1. win/lose layout
-// 2. layout transition + multithreading
-
 int main() {
   using namespace geom_2d;
 
@@ -39,20 +35,17 @@ int main() {
 
   // 3. init other elements
   // cursor
-  Cursor cursor(50, sf::Color::Red);
+  Cursor cursor(40, sf::Color::Red);
   sf::Sound click_sound(resource_mng->GetClickSoundBuffer());
   click_sound.setVolume(30.0f);
-
-  // 4. state
-  bool is_menu_screen = true;
 
   // 5. event handling
   layout_srv->start_btn->onHover = [&click_sound](const Button& b) {
     click_sound.play();
   };
-  layout_srv->start_btn->onClick = [&is_menu_screen, &click_sound]() {
+  layout_srv->start_btn->onClick = [&layout_srv, &click_sound]() {
     click_sound.play();
-    is_menu_screen = !is_menu_screen;
+    layout_srv->onStart();
   };
 
   layout_srv->exit_btn->onHover = [&click_sound](const Button& b) {
@@ -65,7 +58,6 @@ int main() {
   while (window.isOpen()) {
     auto t0 = std::chrono::steady_clock::now();
     ++frame;
-
     sf::Event event;
     while (window.pollEvent(event)) {
       switch (event.type) {
@@ -73,53 +65,61 @@ int main() {
           window.close();
           break;
         case sf::Event::KeyPressed:
-          switch (event.key.code) {
-            case sf::Keyboard::Escape:
-              std::cout << "the escape key was pressed" << std::endl;
-              std::cout << "control:" << event.key.control << std::endl;
-              std::cout << "alt:" << event.key.alt << std::endl;
-              std::cout << "shift:" << event.key.shift << std::endl;
-              std::cout << "system:" << event.key.system << std::endl;
-              window.close();
-              break;
+          if (layout_srv->game_rules->active || layout_srv->game_win->active ||
+              layout_srv->game_lose->active) {
+            layout_srv->onRulesRead();
+
+          } else {
+            switch (event.key.code) {
+              case sf::Keyboard::Escape:
+                std::cout << "the escape key was pressed" << std::endl;
+                std::cout << "control:" << event.key.control << std::endl;
+                std::cout << "alt:" << event.key.alt << std::endl;
+                std::cout << "shift:" << event.key.shift << std::endl;
+                std::cout << "system:" << event.key.system << std::endl;
+                window.close();
+                break;
+              case sf::Keyboard::Q:
+                if (layout_srv->game_layout->active) layout_srv->onWin();
+              case sf::Keyboard::W:
+                if (layout_srv->game_layout->active) layout_srv->onLose();
+                break;
+            }
           }
+
           break;
         case sf::Event::MouseButtonPressed:
-          if (event.mouseButton.button == sf::Mouse::Left) {
-            if (layout_srv->start_btn->hover) layout_srv->start_btn->click();
-            if (layout_srv->exit_btn->hover) layout_srv->exit_btn->click();
 
-            debug(".setPosition({}, {});\n", event.mouseButton.x,
-                  event.mouseButton.y);
+          if (layout_srv->game_rules->active || layout_srv->game_win->active ||
+              layout_srv->game_lose->active) {
+            layout_srv->onRulesRead();
+          } else {
+            if (event.mouseButton.button == sf::Mouse::Left) {
+              auto [_, x, y] = event.mouseButton;
+              for (const auto& btn : layout_srv->active_layout->buttons) {
+                if (btn->hover) btn->click();
+              }
+              debug(".setPosition({}, {});\n", x, y);
+            }
           }
+
           break;
         case sf::Event::MouseMoved:
           auto [x, y] = event.mouseMove;
           cursor.setPosition(x, y);
-          // layout_srv->game_title_lbl->setPosition(x, y);
+          // layout_srv->tmp->setPosition(x, y);
+
           auto bounds = cursor.getBounds();
-
-          if (is_menu_screen) {
-            layout_srv->start_btn->setHover(
-                layout_srv->start_btn->intersects(bounds));
-            layout_srv->exit_btn->setHover(
-                layout_srv->exit_btn->intersects(bounds));
+          for (const auto& btn : layout_srv->active_layout->buttons) {
+            btn->setHover(btn->intersects(bounds));
           }
-
-          // debug("{:6d} cursor position: {},{}\n\n", frame, x, y);
           break;
       }
     }
 
     window.clear(layout_srv->background_clr);
-
-    if (is_menu_screen) {
-      window.draw(*layout_srv->menu);
-    } else {
-      window.draw(*layout_srv->game_layout);
-    }
+    window.draw(*layout_srv->active_layout);
     window.draw(cursor);
-
     window.display();
   }
 
