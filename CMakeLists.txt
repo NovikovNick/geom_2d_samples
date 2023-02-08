@@ -8,3 +8,4 @@ project ("geom_2d")
 # Include sub-projects.
 add_subdirectory ("sample")
 add_subdirectory ("menu")
+add_subdirectory ("grid")
