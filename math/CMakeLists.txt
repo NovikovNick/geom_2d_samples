@@ -1,5 +1,6 @@
 ﻿set(CMAKE_CXX_STANDARD 20)
 
+add_subdirectory (resources)
 file(GLOB MATH_SRC "./*.h" "./*.cc")
 
 # Eigen 3.4
