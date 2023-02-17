@@ -9,7 +9,7 @@ Info::Info(const sf::Font& font, const sf::Color text_color)
   for (int i = 0; i < index_count; ++i) {
     rows_[i] = sf::Text("", font_, 18);
     rows_[i].setFillColor(text_color);
-    rows_[i].setPosition(700, (i + 1) * 20);
+    rows_[i].setPosition(10, i * 20 + 10);
   }
 };
 

@@ -1,15 +1,20 @@
 #include "render.h"
 
 #include <bitset>
+#include <cmath>
+#include <iostream>
 
 #include "game_object.cc"
 #include "game_object.h"
 #include "info.cc"
 #include "info.h"
-#include "iostream"
 #include "util.h"
 
 namespace {
+
+const static float kPi = std::acos(-1.0);
+const static float kDegree = 180 / kPi;
+
 const static uint8_t INPUT_LEFT = 0;
 const static uint8_t INPUT_RIGHT = 1;
 const static uint8_t INPUT_UP = 2;
@@ -46,18 +51,19 @@ Render::Render() {
     debug("Unable to load default_fnt.otf!\n");
 };
 
-void Render::drawVector(const Eigen::Vector2f& world_coord) {
-  drawVector({0, 0}, world_coord);
+void Render::drawVector(const Eigen::Vector2f& world_coord,
+                        const sf::Color color) {
+  drawVector({0, 0}, world_coord, color);
 }
 
-void Render::drawVector(const Eigen::Vector2f& from,
-                        const Eigen::Vector2f& to) {
+void Render::drawVector(const Eigen::Vector2f& from, const Eigen::Vector2f& to,
+                        const sf::Color color) {
   sf::VertexArray l(sf::LinesStrip, 2);
   l[0].position = toScreenCoord(from);
   l[1].position = toScreenCoord(to);
 
-  l[0].color = SND_COLOR;
-  l[1].color = SND_COLOR;
+  l[0].color = color;
+  l[1].color = color;
 
   lines.push_back(l);
   vectors.push_back(to);
@@ -84,49 +90,68 @@ void Render::render() {
   sf::RenderWindow window(mode, "Math", style, settings);
 
   // reduce the framerate to minimize laptop overheat :(
-  window.setFramerateLimit(60);
+  window.setFramerateLimit(24);
 
   debug("======start rendering======\n");
 
   using namespace std::chrono;
   using namespace Eigen;
 
-  Vector2f cursor{300, 0}, base{200, 300}, origin{0, 0};
-  float radius = (cursor - origin).norm();
-  float base_length = (base - origin).norm();
+  Vector2f lhs{300, 0}, rhs{200, 300}, origin{0, 0};
+  float lhs_length = (lhs - origin).norm();
+  float rhs_length = (rhs - origin).norm();
 
   drawPoint(origin);
 
-  drawVector(base);                 // base
-  drawVector(cursor);               // cursor
-  drawVector(Vector2f{radius, 0});  // projection x
-  drawVector(Vector2f{0, radius});  // projection y
-  drawVector(origin);               // perpendicular_x
-  drawVector(origin);               // perpendicular_y
+  drawVector(rhs, TRD_COLOR);     // base
+  drawVector(lhs, SND_COLOR);     // cursor
+  drawVector(origin, SND_COLOR);  // projection x
+  drawVector(origin, SND_COLOR);  // projection y
+  drawVector(origin, TRD_COLOR);  // rhs_perpendicular
+  drawVector(origin, TRD_COLOR);  // rhs_inverted
 
-  auto& base_line = lines[0];
-  base_line[0].color = base_line[1].color = TRD_COLOR;
-
-  auto& cursor_line = lines[1];
-  auto& projection_x = lines[2];
-  auto& projection_y = lines[3];
-  auto& perpendicular_x = lines[4];
-  auto& perpendicular_y = lines[5];
+  auto& rhs_line = lines[0];
+  auto& lhs_line = lines[1];
+  auto& projection_cos = lines[2];
+  auto& projection_sin = lines[3];
+  auto& rhs_perpendicular = lines[4];
+  auto& rhs_inverted = lines[5];
 
   auto& origin_point = points[0];
 
   Info info(font_, FST_COLOR);
 
+  sf::Text lhs_label("LHS", font_, 18);
+  lhs_label.setFillColor(SND_COLOR);
+
+  sf::Text rhs_label("RHS", font_, 18);
+  rhs_label.setFillColor(TRD_COLOR);
+
+  sf::Text rhs_unit_circle_1_quarter_label("  I\n dot +\ncross +", font_, 14);
+  rhs_unit_circle_1_quarter_label.setFillColor(TRD_COLOR);
+
+  sf::Text rhs_unit_circle_2_quarter_label("  II\n dot -\ncross +", font_, 14);
+  rhs_unit_circle_2_quarter_label.setFillColor(TRD_COLOR);
+
+  sf::Text rhs_unit_circle_3_quarter_label("  III\n dot -\ncross -", font_, 14);
+  rhs_unit_circle_3_quarter_label.setFillColor(TRD_COLOR);
+
+  sf::Text rhs_unit_circle_4_quarter_label("  IV\n dot +\ncross -", font_, 14);
+  rhs_unit_circle_4_quarter_label.setFillColor(TRD_COLOR);
+
   bool dragable = false;
-  bool p1_selected = false, p2_selected = false, origin_selected = false;
+  bool lhs_selected = false, rhs_selected = false, origin_selected = false;
 
   float sel_area = 10.f;
   sf::CircleShape selected(sel_area);
   selected.setFillColor(FST_COLOR);
   Vector2f area(sel_area, sel_area);
 
-  GameObject cursor_arrow({{-1.f, 0.3f}, {0.f, 0.f}, {-1.f, -0.3f}});
-  GameObject base_arrow({{-1.f, 0.3f}, {0.f, 0.f}, {-1.f, -0.3f}});
+  GameObject lhs_arrow({{-1.f, 0.3f}, {0.f, 0.f}, {-1.f, -0.3f}});
+  GameObject rhs_arrow({{-1.f, 0.3f}, {0.f, 0.f}, {-1.f, -0.3f}});
+
+  sf::VertexArray angle_arc(sf::LinesStrip, 11);
+  for (int i = 0; i < 11; ++i) angle_arc[i].color = FST_COLOR;
 
   auto t0 = steady_clock::now();
   auto t1 = steady_clock::now();
@@ -147,10 +172,10 @@ void Render::render() {
         case sf::Event::KeyPressed:
           switch (event.key.code) {
             case sf::Keyboard::A:
-              p1_selected = true;
+              lhs_selected = true;
               break;
             case sf::Keyboard::D:
-              p2_selected = true;
+              rhs_selected = true;
               break;
             case sf::Keyboard::W:
               origin_selected = true;
@@ -160,10 +185,10 @@ void Render::render() {
         case sf::Event::KeyReleased:
           switch (event.key.code) {
             case sf::Keyboard::A:
-              p1_selected = false;
+              lhs_selected = false;
               break;
             case sf::Keyboard::D:
-              p2_selected = false;
+              rhs_selected = false;
               break;
             case sf::Keyboard::W:
               origin_selected = false;
@@ -176,6 +201,9 @@ void Render::render() {
             dragable = true;
             // drawPoint(toWorldCoord({x, y}));
           }
+          if (event.mouseButton.button == sf::Mouse::Right) {
+            debug("right click\n");
+          }
           break;
         case sf::Event::MouseButtonReleased:
           if (event.mouseButton.button == sf::Mouse::Left) dragable = false;
@@ -185,128 +213,168 @@ void Render::render() {
           Vector2f p_offset{point_radius, point_radius};
           auto cur = toWorldCoord({x, y});
 
-          bool intersect_x = cursor.x() <= cur.x() + sel_area &&
-                             cursor.x() >= cur.x() - sel_area;
-          bool intersect_y = cursor.y() <= cur.y() + sel_area &&
-                             cursor.y() >= cur.y() - sel_area;
-          bool base_x =
-              base.x() <= cur.x() + sel_area && base.x() >= cur.x() - sel_area;
-          bool base_y =
-              base.y() <= cur.y() + sel_area && base.y() >= cur.y() - sel_area;
+          bool lhs_x =
+              lhs.x() <= cur.x() + sel_area && lhs.x() >= cur.x() - sel_area;
+          bool lhs_y =
+              lhs.y() <= cur.y() + sel_area && lhs.y() >= cur.y() - sel_area;
+          bool rhs_x =
+              rhs.x() <= cur.x() + sel_area && rhs.x() >= cur.x() - sel_area;
+          bool rhs_y =
+              rhs.y() <= cur.y() + sel_area && rhs.y() >= cur.y() - sel_area;
           bool origin_x = origin.x() <= cur.x() + sel_area &&
                           origin.x() >= cur.x() - sel_area;
           bool origin_y = origin.y() <= cur.y() + sel_area &&
                           origin.y() >= cur.y() - sel_area;
 
           if (dragable) {
-            if (p1_selected) selected.setPosition(toScreenCoord(cursor - area));
-            if (p2_selected) selected.setPosition(toScreenCoord(base - area));
+            if (lhs_selected) selected.setPosition(toScreenCoord(lhs - area));
+            if (rhs_selected) selected.setPosition(toScreenCoord(rhs - area));
             if (origin_selected)
               selected.setPosition(toScreenCoord(origin - area));
-          } else if (intersect_x && intersect_y) {
-            selected.setPosition(toScreenCoord(cursor - area));
-            p1_selected = true;
-            p2_selected = origin_selected = false;
-          } else if (base_x && base_y) {
-            selected.setPosition(toScreenCoord(base - area));
-            p2_selected = true;
-            p1_selected = origin_selected = false;
+          } else if (lhs_x && lhs_y) {
+            selected.setPosition(toScreenCoord(lhs - area));
+            lhs_selected = true;
+            rhs_selected = origin_selected = false;
+          } else if (rhs_x && rhs_y) {
+            selected.setPosition(toScreenCoord(rhs - area));
+            rhs_selected = true;
+            lhs_selected = origin_selected = false;
           } else if (origin_x && origin_y) {
             selected.setPosition(toScreenCoord(origin - area));
             origin_selected = true;
-            p1_selected = p2_selected = false;
+            lhs_selected = rhs_selected = false;
           } else {
-            p2_selected = p1_selected = origin_selected = false;
+            rhs_selected = lhs_selected = origin_selected = false;
           }
 
-          if (dragable && (p1_selected || p2_selected || origin_selected)) {
-            if (p1_selected) cursor = cur;
-            if (p2_selected) base = cur;
+          if (dragable && (lhs_selected || rhs_selected || origin_selected)) {
+            if (lhs_selected) lhs = cur;
+            if (rhs_selected) rhs = cur;
             if (origin_selected) origin = cur;
 
-            cursor -= origin;
-            base -= origin;
-            radius = cursor.norm();
-            base_length = base.norm();
+            lhs -= origin;
+            rhs -= origin;
+            lhs_length = lhs.norm();
+            rhs_length = rhs.norm();
 
-            cursor.normalize();
-            base.normalize();
+            lhs.normalize();
+            rhs.normalize();
 
-            auto dot = cursor.dot(base);
-            auto cross = cursor.cross(base);
+            float dot = lhs.dot(rhs);
+            float cross = lhs.cross(rhs);
             float angle = std::acos(dot);
 
             info.update(Info::INDEX::DOT, dot);
             info.update(Info::INDEX::CROSS, cross);
-            info.update(Info::INDEX::ANGLE, angle * 180 / 3.14);
+            info.update(Info::INDEX::ANGLE, angle * kDegree);
             info.update(Info::INDEX::COS, std::cos(angle));
             info.update(Info::INDEX::SIN, std::sin(angle));
+            info.update(Info::INDEX::LHS_LENGTH, lhs_length);
+            info.update(Info::INDEX::RHS_LENGTH, rhs_length);
             info.update(Info::INDEX::ATAN,
-                        std::atan2(cursor.y(), cursor.x()) * 180 / 3.14);
+                        std::atan2(rhs.y(), rhs.x()) * kDegree);
 
-            auto xP = std::cos(angle) * radius;
-            auto yP = (cross >= 0 ? -1 : 1) * std::sin(angle) * radius;
-            auto d2 = Vector2f{-base.y(), base.x()};
+            auto lhs_cos = std::cos(angle) * lhs_length;
 
-            projection_x[0].position = toScreenCoord(origin);
-            projection_x[1].position = toScreenCoord(base * xP + origin);
+            projection_cos[0].position = toScreenCoord(origin);
+            projection_cos[1].position = toScreenCoord(rhs * lhs_cos + origin);
+            projection_sin[0].position =
+                toScreenCoord(lhs * lhs_length + origin);
+            projection_sin[1].position = toScreenCoord(rhs * lhs_cos + origin);
 
-            projection_y[0].position = toScreenCoord(origin);
-            projection_y[1].position = toScreenCoord(d2 * yP + origin);
+            rhs_perpendicular[0].position = toScreenCoord(
+                Vector2f{-rhs.y(), rhs.x()} * rhs_length + origin);
+            rhs_perpendicular[1].position = toScreenCoord(
+                Vector2f{rhs.y(), -rhs.x()} * rhs_length + origin);
+            rhs_inverted[0].position = toScreenCoord(origin);
+            rhs_inverted[1].position =
+                toScreenCoord(rhs * -rhs_length + origin);
 
-            cursor_line[0].position = toScreenCoord(origin);
-            cursor_line[1].position = toScreenCoord(cursor * radius + origin);
+            lhs_line[0].position = toScreenCoord(origin);
+            lhs_line[1].position = toScreenCoord(lhs * lhs_length + origin);
 
-            base_line[0].position = toScreenCoord(origin);
-            base_line[1].position = toScreenCoord(base * base_length + origin);
+            rhs_line[0].position = toScreenCoord(origin);
+            rhs_line[1].position = toScreenCoord(rhs * rhs_length + origin);
 
-            perpendicular_x[0] = toScreenCoord(d2 * yP + origin);
-            perpendicular_x[1] = toScreenCoord(cursor * radius + origin);
+            lhs_label.setPosition(toScreenCoord(lhs * (lhs_length + 30) +
+                                                origin - Vector2f{15, 9}));
+            rhs_label.setPosition(toScreenCoord(rhs * (rhs_length + 30) +
+                                                origin - Vector2f{15, 9}));
 
-            perpendicular_y[0] = toScreenCoord(base * xP + origin);
-            perpendicular_y[1] = toScreenCoord(cursor * radius + origin);
+            rhs_unit_circle_1_quarter_label.setPosition(
+                toScreenCoord(Rotation2Df(-3.14 / 4) * rhs * rhs_length / 2 +
+                              origin - Vector2f{20.f, 25.f}));
+            rhs_unit_circle_2_quarter_label.setPosition(toScreenCoord(
+                Rotation2Df(-3.14 / 4 * 3) * rhs * rhs_length / 2 + origin -
+                Vector2f{20.f, 25.f}));
+            rhs_unit_circle_3_quarter_label.setPosition(toScreenCoord(
+                Rotation2Df(-3.14 - 3.14 / 4) * rhs * rhs_length / 2 + origin -
+                Vector2f{20.f, 25.f}));
+            rhs_unit_circle_4_quarter_label.setPosition(toScreenCoord(
+                Rotation2Df(-3.14 - 3.14 / 4 * 3) * rhs * rhs_length / 2 +
+                origin - Vector2f{20.f, 25.f}));
 
-            cursor = cursor * radius + origin;
-            base = base * base_length + origin;
+            for (float i = 0; i < 11; ++i) {
+              auto rotation_angle = angle * (cross > 0 ? -0.1f : 0.1f) * i;
+              angle_arc[i].position =
+                  toScreenCoord(Rotation2D(rotation_angle) * rhs * 30 + origin);
+            }
+
+            lhs = lhs * lhs_length + origin;
+            rhs = rhs * rhs_length + origin;
 
             origin_point.setPosition(toScreenCoord(origin - p_offset));
 
-            cursor_arrow.position = cursor;
-            cursor_arrow.rotation = (cursor - origin).normalized();
+            lhs_arrow.position = lhs;
+            lhs_arrow.rotation = (lhs - origin).normalized();
 
-            base_arrow.position = base;
-            base_arrow.rotation = (base - origin).normalized();
-
+            rhs_arrow.position = rhs;
+            rhs_arrow.rotation = (rhs - origin).normalized();
           }
           break;
       }
       if (event.type == sf::Event::Closed) window.close();
     }
 
-    sf::CircleShape shape(base_length);
-    shape.setPointCount(75);
-    shape.setPosition(
-        toScreenCoord(origin - Vector2f{base_length, base_length}));
-    shape.setFillColor(BG_COLOR);
-    shape.setOutlineThickness(1);
-    shape.setOutlineColor(TRD_COLOR);
+    sf::CircleShape rhs_unit_circle(rhs_length);
+    rhs_unit_circle.setPointCount(75);
+    rhs_unit_circle.setPosition(
+        toScreenCoord(origin - Vector2f{rhs_length, rhs_length}));
+    rhs_unit_circle.setFillColor(BG_COLOR);
+    rhs_unit_circle.setOutlineThickness(1);
+    rhs_unit_circle.setOutlineColor(TRD_COLOR);
 
     window.clear(BG_COLOR);
-    if (dragable) window.draw(shape);
-    if (p1_selected || p2_selected || origin_selected) window.draw(selected);
-    for (const auto& line : lines) window.draw(line);
+    if (dragable) window.draw(rhs_unit_circle);
+    if (lhs_selected || rhs_selected || origin_selected) window.draw(selected);
 
-    sf::VertexArray arrow_coords(sf::Triangles, cursor_arrow.size());
-    for (int i = 0; i < cursor_arrow.size(); ++i) {
-      arrow_coords[i].position = toScreenCoord(cursor_arrow[i]);
+    window.draw(rhs_line);
+    window.draw(lhs_line);
+    if (dragable) window.draw(rhs_perpendicular);
+    if (dragable) window.draw(rhs_inverted);
+    if (dragable) window.draw(projection_cos);
+    if (dragable) window.draw(projection_sin);
+    if (dragable) window.draw(rhs_unit_circle_1_quarter_label);
+    if (dragable) window.draw(rhs_unit_circle_2_quarter_label);
+    if (dragable) window.draw(rhs_unit_circle_3_quarter_label);
+    if (dragable) window.draw(rhs_unit_circle_4_quarter_label);
+
+    sf::VertexArray arrow_coords(sf::Triangles, lhs_arrow.size());
+    for (int i = 0; i < lhs_arrow.size(); ++i) {
+      arrow_coords[i].position = toScreenCoord(lhs_arrow[i]);
+      arrow_coords[i].color = SND_COLOR;
     }
     window.draw(arrow_coords);
 
-    sf::VertexArray base_arrow_coords(sf::Triangles, base_arrow.size());
-    for (int i = 0; i < base_arrow.size(); ++i) {
-      base_arrow_coords[i].position = toScreenCoord(base_arrow[i]);
+    sf::VertexArray base_arrow_coords(sf::Triangles, rhs_arrow.size());
+    for (int i = 0; i < rhs_arrow.size(); ++i) {
+      base_arrow_coords[i].position = toScreenCoord(rhs_arrow[i]);
     }
     window.draw(base_arrow_coords);
+    window.draw(angle_arc);
+
+    if (!dragable) window.draw(lhs_label);
+    if (!dragable) window.draw(rhs_label);
 
     for (const auto& point : points) window.draw(point);
     window.draw(info);

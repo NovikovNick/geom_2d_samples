@@ -10,8 +10,8 @@ class Render {
   sf::Font font_;
  public:
   Render();
-  void drawVector(const Eigen::Vector2f& p);
-  void drawVector(const Eigen::Vector2f& p1, const Eigen::Vector2f& p2);
+  void drawVector(const Eigen::Vector2f& p, const sf::Color color);
+  void drawVector(const Eigen::Vector2f& p1, const Eigen::Vector2f& p2, const sf::Color color);
   Eigen::Vector2f drawPoint(const Eigen::Vector2f& p);
   void render();
 };
