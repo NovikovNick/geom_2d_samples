@@ -4,15 +4,11 @@
 #include <SFML/Graphics.hpp>
 #include <cmath>
 
-#include "game_object.cc"
-#include "game_object.h"
+#include "vector_shape.h"
 
 namespace math {
 
 class VectorProductVisualizer : public sf::Drawable {
-  sf::Font font_;
-  sf::Color bg_color_, fst_color_, snd_color_;
-
   Eigen::Vector2f lhs_, rhs_, origin_;
 
   float dot_, cross_, angle_rad_, cos_, sin_, lhs_length_, rhs_length_;
@@ -20,8 +16,8 @@ class VectorProductVisualizer : public sf::Drawable {
   sf::Text lhs_label_, rhs_label_, quart1_label_, quart2_label_, quart3_label_,
       quart4_label_;
 
-  sf::VertexArray rhs_line_, lhs_line_, cos_projection_line_,
-      sin_projection_line_, rhs_perpendicular_line_, rhs_inverted_line_;
+  sf::VertexArray cos_projection_line_, sin_projection_line_,
+      rhs_perpendicular_line_, rhs_inverted_line_;
 
   sf::CircleShape origin_point_;
 
@@ -29,7 +25,7 @@ class VectorProductVisualizer : public sf::Drawable {
 
   sf::CircleShape unit_circle_;
 
-  GameObject lhs_arrow_, rhs_arrow_;  // TODO: rename as CustomShape
+  VectorShape lhs_vector_, rhs_vector_;
 
   sf::VertexArray angle_arc_;
 

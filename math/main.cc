@@ -8,6 +8,7 @@
 #include "src/util.h"
 #include "src/vector_product_visualizer.cc"
 #include "src/vector_product_visualizer.h"
+#include "src/vector_shape.cc"
 
 using namespace std::chrono;
 using namespace math;
@@ -19,7 +20,6 @@ const static sf::Color kSndColor(255, 17, 17);
 const static sf::Color kTrdColor(255, 255, 255);
 }  // namespace
 
-// TODO: Console output on update ready to copy/paste to programm
 int main() {
   sf::ContextSettings settings;
   settings.antialiasingLevel = 8;
@@ -40,8 +40,7 @@ int main() {
   math::VectorProductVisualizer visualizer(font, kBGColor, kSndColor,
                                            kTrdColor);
 
-  visualizer.update({-300, 200}, {250, 300}, {0, 0});
-
+  visualizer.update({-30, -1}, {30, -1}, {0, 0});
   auto t0 = steady_clock::now();
   auto t1 = steady_clock::now();
   double dx = 0;

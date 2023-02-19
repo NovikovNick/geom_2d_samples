@@ -10,6 +10,11 @@ const static Eigen::Vector2f kWorldOrigin(450, 450);
 const static Eigen::Translation2f kWorldT(kWorldOrigin);
 const static Eigen::Translation2f kWorldTInverted(kWorldT.inverse());
 
+const static Eigen::Rotation2Df kTurn45(-kPi / 4);
+const static Eigen::Rotation2Df kTurn135(-3 * kPi / 4);
+const static Eigen::Rotation2Df kTurn225(-5 * kPi / 4);
+const static Eigen::Rotation2Df kTurn315(-7 * kPi / 4 );
+
 sf::VertexArray initLine(const sf::Color color) {
   sf::VertexArray line(sf::LinesStrip, 2);
   line[0].color = line[1].color = color;
@@ -80,11 +85,7 @@ VectorProductVisualizer::VectorProductVisualizer(const sf::Font& font,
                                                  const sf::Color bg_color,
                                                  const sf::Color fst_color,
                                                  const sf::Color snd_color)
-    : font_(font),
-      bg_color_(bg_color),
-      fst_color_(fst_color),
-      snd_color_(snd_color),
-      lhs_({0.f, 0.f}),
+    : lhs_({0.f, 0.f}),
       rhs_({0.f, 0.f}),
       origin_({0.f, 0.f}),
       dot_(0.f),
@@ -100,8 +101,8 @@ VectorProductVisualizer::VectorProductVisualizer(const sf::Font& font,
       quart2_label_(initLabel(font, snd_color, "  II \n dot -\ncross +", 14)),
       quart3_label_(initLabel(font, snd_color, "  III\n dot -\ncross -", 14)),
       quart4_label_(initLabel(font, snd_color, "  IV \n dot +\ncross -", 14)),
-      lhs_line_(initLine(fst_color)),
-      rhs_line_(initLine(snd_color)),
+      lhs_vector_(VectorShape(fst_color)),
+      rhs_vector_(VectorShape(snd_color)),
       cos_projection_line_(initLine(fst_color)),
       sin_projection_line_(initLine(fst_color)),
       rhs_perpendicular_line_(initLine(snd_color)),
@@ -109,8 +110,6 @@ VectorProductVisualizer::VectorProductVisualizer(const sf::Font& font,
       origin_point_(initPoint(fst_color)),
       selected_(initSelected(fst_color)),
       unit_circle_(initUnitCircle(bg_color, snd_color)),
-      lhs_arrow_({{-1.f, 0.3f}, {0.f, 0.f}, {-1.f, -0.3f}}),
-      rhs_arrow_({{-1.f, 0.3f}, {0.f, 0.f}, {-1.f, -0.3f}}),
       angle_arc_(initAngleArc(fst_color)),
       drag_(false),
       lhs_selected_(false),
@@ -121,6 +120,12 @@ void VectorProductVisualizer::update(const Eigen::Vector2f mouse_position,
                                      const bool lft_mouse_pressed) {
   drag_ = lft_mouse_pressed;
   update(mouse_position);
+
+  if (!lft_mouse_pressed)
+    debug(
+        "update({{{:4.0f},{:4.0f}}}, {{{:4.0f},{:4.0f}}}, "
+        "{{{:4.0f},{:4.0f}}});\n",
+        lhs_.x(), lhs_.y(), rhs_.x(), rhs_.y(), origin_.x(), origin_.y());
 };
 
 void VectorProductVisualizer::update(const Eigen::Vector2f mouse_position) {
@@ -180,13 +185,7 @@ void VectorProductVisualizer::update(Eigen::Vector2f lhs, Eigen::Vector2f rhs,
   rhs_inverted_line_[0].position = toScreen(origin);
   rhs_inverted_line_[1].position = toScreen(rhs * -rhs_length_ + origin);
 
-  lhs_line_[0].position = toScreen(origin);
-  lhs_line_[1].position = toScreen(lhs * lhs_length_ + origin);
-
-  rhs_line_[0].position = toScreen(origin);
-  rhs_line_[1].position = toScreen(rhs * rhs_length_ + origin);
-
-  const auto unit_circle_offset = Eigen::Vector2f{rhs_length_, rhs_length_};
+  const Eigen::Vector2f unit_circle_offset{rhs_length_, rhs_length_};
   unit_circle_.setRadius(rhs_length_);
   unit_circle_.setPosition(toScreen(origin - unit_circle_offset));
 
@@ -195,14 +194,10 @@ void VectorProductVisualizer::update(Eigen::Vector2f lhs, Eigen::Vector2f rhs,
   rhs_label_.setPosition(toScreen(rhs * (rhs_length_ + 30) + title_offset));
 
   const Eigen::Vector2f quart_offset = origin - Eigen::Vector2f{20.f, 25.f};
-  const Eigen::Rotation2Df turn45(-kPi / 4);
-  const Eigen::Rotation2Df turn135(-kPi / 4 * 3);
-  const Eigen::Rotation2Df turn225(-kPi - kPi / 4);
-  const Eigen::Rotation2Df turn315(-kPi - kPi / 4 * 3);
-  const Eigen::Vector2f quart1(turn45 * rhs * rhs_length_ / 2 + quart_offset);
-  const Eigen::Vector2f quart2(turn135 * rhs * rhs_length_ / 2 + quart_offset);
-  const Eigen::Vector2f quart3(turn225 * rhs * rhs_length_ / 2 + quart_offset);
-  const Eigen::Vector2f quart4(turn315 * rhs * rhs_length_ / 2 + quart_offset);
+  const Eigen::Vector2f quart1(kTurn45 * rhs * rhs_length_ / 2 + quart_offset);
+  const Eigen::Vector2f quart2(kTurn135 * rhs * rhs_length_ / 2 + quart_offset);
+  const Eigen::Vector2f quart3(kTurn225 * rhs * rhs_length_ / 2 + quart_offset);
+  const Eigen::Vector2f quart4(kTurn315 * rhs * rhs_length_ / 2 + quart_offset);
   quart1_label_.setPosition(toScreen(quart1));
   quart2_label_.setPosition(toScreen(quart2));
   quart3_label_.setPosition(toScreen(quart3));
@@ -217,13 +212,9 @@ void VectorProductVisualizer::update(Eigen::Vector2f lhs, Eigen::Vector2f rhs,
   rhs_ = rhs * rhs_length_ + origin;
   origin_ = origin;
 
+  lhs_vector_.update(kWorldT * origin, kWorldT * lhs_);
+  rhs_vector_.update(kWorldT * origin, kWorldT * rhs_);
   origin_point_.setPosition(toScreen(origin_ - kPointOffset));
-
-  lhs_arrow_.position = lhs_;
-  lhs_arrow_.rotation = (lhs_ - origin).normalized();
-
-  rhs_arrow_.position = rhs_;
-  rhs_arrow_.rotation = (rhs_ - origin).normalized();
 }
 
 void VectorProductVisualizer::draw(sf::RenderTarget& target,
@@ -233,8 +224,9 @@ void VectorProductVisualizer::draw(sf::RenderTarget& target,
   if (lhs_selected_ || rhs_selected_ || origin_selected_)
     target.draw(selected_, states);
 
-  target.draw(rhs_line_, states);
-  target.draw(lhs_line_, states);
+  target.draw(angle_arc_, states);
+  target.draw(lhs_vector_, states);
+  target.draw(rhs_vector_, states);
 
   if (drag_) target.draw(rhs_perpendicular_line_, states);
   if (drag_) target.draw(rhs_inverted_line_, states);
@@ -245,25 +237,9 @@ void VectorProductVisualizer::draw(sf::RenderTarget& target,
   if (drag_) target.draw(quart3_label_, states);
   if (drag_) target.draw(quart4_label_, states);
 
-  // TODO: move to update method
-  sf::VertexArray lhs_arrow(sf::Triangles, lhs_arrow_.size());
-  for (int i = 0; i < lhs_arrow_.size(); ++i) {
-    lhs_arrow[i].position = toScreen(lhs_arrow_[i]);
-    lhs_arrow[i].color = fst_color_;
-  }
-  // TODO: move to update method
-  sf::VertexArray rhs_arrow(sf::Triangles, rhs_arrow_.size());
-  for (int i = 0; i < rhs_arrow_.size(); ++i) {
-    rhs_arrow[i].position = toScreen(rhs_arrow_[i]);
-    rhs_arrow[i].color = snd_color_;
-  }
-
-  target.draw(lhs_arrow, states);
-  target.draw(rhs_arrow, states);
-  target.draw(angle_arc_, states);
-
   if (!drag_) target.draw(lhs_label_, states);
   if (!drag_) target.draw(rhs_label_, states);
+
   target.draw(origin_point_, states);
 };
 
