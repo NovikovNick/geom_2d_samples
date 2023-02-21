@@ -9,8 +9,6 @@
 namespace math {
 
 class VectorProductVisualizer : public sf::Drawable {
-  Eigen::Vector2f lhs_, rhs_, origin_;
-
   float dot_, cross_, angle_rad_, cos_, sin_, lhs_length_, rhs_length_;
 
   sf::Text lhs_label_, rhs_label_, quart1_label_, quart2_label_, quart3_label_,
@@ -32,6 +30,8 @@ class VectorProductVisualizer : public sf::Drawable {
   bool drag_, lhs_selected_, rhs_selected_, origin_selected_;
 
  public:
+  Eigen::Vector2f lhs_, rhs_, origin_;
+
   VectorProductVisualizer(const sf::Font& font, const sf::Color bg_color,
                           const sf::Color fst_color, const sf::Color snd_color);
 

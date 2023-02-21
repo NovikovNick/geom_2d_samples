@@ -1,32 +1,22 @@
 #ifndef GEOM_2D_MATH_OBJECT_H
 #define GEOM_2D_MATH_OBJECT_H
 #include <Eigen/Dense>
+#include <fpm/fixed.hpp>
 #include <vector>
 
 namespace math {
-/*
 
-if (input[INPUT_LEFT]) rect_obj.position += Vector2f(-dx * velocity, 0);
-if (input[INPUT_RIGHT]) rect_obj.position += Vector2f(dx * velocity, 0);
-if (input[INPUT_UP]) rect_obj.position += Vector2f(0, -dx* velocity);
-if (input[INPUT_DOWN]) rect_obj.position += Vector2f(0, dx* velocity);
-
-sf::VertexArray rectangle(sf::Quads, 4);
-for (int i = 0; i < rect_obj.size(); ++i) {
-  rectangle[i].position = toScreenCoord(rect_obj[i]);
-}
-window.draw(rectangle);
-
-*/
 class GameObject {
-  std::vector<Eigen::Vector2f> mesh;
+  std::vector<Eigen::Vector2<fpm::fixed_16_16>> mesh;
 
  public:
-  Eigen::Vector2f position, rotation;
+  Eigen::Vector2<fpm::fixed_16_16> position, velocity;
 
-  GameObject(std::vector<Eigen::Vector2f> mesh);
+  GameObject(const std::vector<Eigen::Vector2<fpm::fixed_16_16>>& mesh);
 
-  Eigen::Vector2f operator[](const size_t index) const;
+  Eigen::Vector3<fpm::fixed_16_16> operator[](const size_t index) const;
+
+  void update(const fpm::fixed_16_16 delta);
 
   size_t size() const;
 };
