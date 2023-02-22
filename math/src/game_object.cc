@@ -16,8 +16,7 @@ GameObject::GameObject(const std::vector<Vector2<fixed_16_16>>& mesh)
       velocity(Vector2<fixed_16_16>{fixed_16_16{0.f}, fixed_16_16{0.f}}) {}
 
 void GameObject::update(const fixed_16_16 delta) {
-  position += velocity * delta;
-  velocity -= velocity * delta;
+  
 };
 
 Vector3<fixed_16_16> GameObject::operator[](const size_t index) const {
@@ -30,8 +29,8 @@ Vector3<fixed_16_16> GameObject::operator[](const size_t index) const {
                   fixed_16_16{0}, fixed_16_16{1}, position.y(),
                   fixed_16_16{0}, fixed_16_16{0}, fixed_16_16{1};
   Matrix3<fixed_16_16> scale;
-  scale <<   fixed_16_16{50}, fixed_16_16{0}, fixed_16_16{0}, 
-              fixed_16_16{0}, fixed_16_16{50}, fixed_16_16{0},
+  scale <<   fixed_16_16{64}, fixed_16_16{0}, fixed_16_16{0}, 
+              fixed_16_16{0}, fixed_16_16{128}, fixed_16_16{0},
               fixed_16_16{0}, fixed_16_16{0}, fixed_16_16{1};
   Vector3<fixed_16_16> vect(mesh[index].x(), mesh[index].y(), fixed_16_16{1});
   return transition * scale * vect;
