@@ -15,10 +15,6 @@ GameObject::GameObject(const std::vector<Vector2<fixed_16_16>>& mesh)
       position(Vector2<fixed_16_16>{fixed_16_16{0.f}, fixed_16_16{0.f}}),
       velocity(Vector2<fixed_16_16>{fixed_16_16{0.f}, fixed_16_16{0.f}}) {}
 
-void GameObject::update(const fixed_16_16 delta) {
-  
-};
-
 Vector3<fixed_16_16> GameObject::operator[](const size_t index) const {
   Matrix3<fixed_16_16> identity;
   identity <<   fixed_16_16{1.f}, fixed_16_16{0.f}, fixed_16_16{0.f},

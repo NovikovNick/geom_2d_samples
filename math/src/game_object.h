@@ -16,8 +16,6 @@ class GameObject {
 
   Eigen::Vector3<fpm::fixed_16_16> operator[](const size_t index) const;
 
-  void update(const fpm::fixed_16_16 delta);
-
   size_t size() const;
 };
 

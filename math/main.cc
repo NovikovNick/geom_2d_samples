@@ -5,8 +5,12 @@
 #include <fpm/fixed.hpp>
 #include <iostream>
 
+#include "src/game_loop.cc"
+#include "src/game_loop.h"
 #include "src/game_object.cc"
 #include "src/game_object.h"
+#include "src/game_state.cc"
+#include "src/game_state.h"
 #include "src/info.cc"
 #include "src/info.h"
 #include "src/scalable_grid.cc"
@@ -36,7 +40,8 @@ inline int length(const Eigen::Vector2<fpm::fixed_16_16>& vector) {
                    std::pow(static_cast<int>(vector.y()), 2));
 }
 
-Eigen::Vector2<fpm::fixed_16_16> normal(const Eigen::Vector2<fpm::fixed_16_16>& vector) {
+Eigen::Vector2<fpm::fixed_16_16> normal(
+    const Eigen::Vector2<fpm::fixed_16_16>& vector) {
   int l = length(vector);
   if (l == 0) return {fixed_16_16{0}, fixed_16_16{0}};
   return {vector.x() / l, vector.y() / l};
@@ -51,8 +56,8 @@ int main() {
   sf::RenderWindow window(mode, "Generic Platformer", style, settings);
 
   // reduce the framerate to minimize laptop overheat :(
-  // window.setFramerateLimit(24);
-  window.setFramerateLimit(60);
+  window.setFramerateLimit(24);
+  //window.setFramerateLimit(60);
 
   sf::Font font;
   if (!font.loadFromFile("resources/default_fnt.otf")) {
@@ -64,13 +69,7 @@ int main() {
 
   math::VectorProductVisualizer visualizer(font, kBGColor, kSndColor,
                                            kTrdColor);
-  // visualizer.update({-30, -1}, {30, -1}, {0, 0});
   visualizer.update({0, -128}, {64, 0}, {0, 0});
-
-  math::GameObject player({{fpm::fixed_16_16(-0.5), fpm::fixed_16_16(0.5)},
-                           {fpm::fixed_16_16(0.5), fpm::fixed_16_16(0.5)},
-                           {fpm::fixed_16_16(0.5), fpm::fixed_16_16(-0.5)},
-                           {fpm::fixed_16_16(-0.5), fpm::fixed_16_16(-0.5)}});
 
   math::VectorShape velocity_vector(kSndColor);
 
@@ -78,12 +77,15 @@ int main() {
 
   auto t0 = steady_clock::now();
   auto t1 = steady_clock::now();
-  float dx = 0;
-  float velocity = 50;
-  int base = 768;
-  std::bitset<4> input(0);
-  int jump_counter = 0;
-  float elapsed = 0;
+  float elapsed = 0, dx = 0;
+
+  std::bitset<4> input_bitset(0);
+  auto fps = std::make_shared<std::atomic<int>>(3);
+  auto input = std::make_shared<std::atomic<int>>(0);
+  auto gs = std::make_shared<math::GameState>();
+  math::GameLoop game_loop(gs, fps, input);
+  std::thread(game_loop).detach();
+
   while (window.isOpen()) {
     t1 = steady_clock::now();
     dx = duration_cast<microseconds>(t1 - t0).count() / 1e6;
@@ -102,32 +104,32 @@ int main() {
         case sf::Event::KeyPressed:
           switch (event.key.code) {
             case sf::Keyboard::A:
-              input[kInputLeft] = true;
+              input_bitset[kInputLeft] = true;
               break;
             case sf::Keyboard::D:
-              input[kInputRight] = true;
+              input_bitset[kInputRight] = true;
               break;
             case sf::Keyboard::W:
-              input[kInputUp] = true;
+              input_bitset[kInputUp] = true;
               break;
             case sf::Keyboard::S:
-              input[kInputDown] = true;
+              input_bitset[kInputDown] = true;
               break;
           }
           break;
         case sf::Event::KeyReleased:
           switch (event.key.code) {
             case sf::Keyboard::A:
-              input[kInputLeft] = false;
+              input_bitset[kInputLeft] = false;
               break;
             case sf::Keyboard::D:
-              input[kInputRight] = false;
+              input_bitset[kInputRight] = false;
               break;
             case sf::Keyboard::W:
-              input[kInputUp] = false;
+              input_bitset[kInputUp] = false;
               break;
             case sf::Keyboard::S:
-              input[kInputDown] = false;
+              input_bitset[kInputDown] = false;
               break;
           }
           break;
@@ -150,56 +152,15 @@ int main() {
         }
         case sf::Event::MouseWheelMoved: {
           auto [delta, x, y] = event.mouseWheel;
+          fps->fetch_add(delta);
           grid.update(delta);
           break;
         }
       }
     }
 
-    const fixed_16_16 delta{1};
-    const Vector2<fixed_16_16> left(-delta, fixed_16_16{0});
-    const Vector2<fixed_16_16> right(delta, fixed_16_16{0});
-    const Vector2<fixed_16_16> top(fixed_16_16{0}, -delta);
-    const Vector2<fixed_16_16> down(fixed_16_16{0}, delta);
-
-    Vector2<fixed_16_16> impuls{fixed_16_16{0}, fixed_16_16{0}};
-    if (input[kInputLeft]) impuls += left;
-    if (input[kInputRight]) impuls += right;
-    if (input[kInputDown]) impuls += down;
-
-    player.velocity += normal(impuls) * fixed_16_16{velocity};
-
-    if (input[kInputUp] && jump_counter < 1) {
-      ++jump_counter;
-      player.velocity += Vector2<fixed_16_16>{0, -1000};
-      player.velocity.x() *= fixed_16_16{1.3};
-    }
-
-    
-    if (jump_counter == 0 && !input[kInputLeft] && !input[kInputRight]) {
-      player.velocity.x() *= fixed_16_16{0.7};
-    } 
-
-    if (static_cast<float>(player.position.y()) < base) {
-      player.velocity += Vector2<fixed_16_16>{0, 150};
-    } else {
-      jump_counter = 0;
-      if (player.velocity.y() > fixed_16_16{0})
-        player.velocity.y() = fixed_16_16{0};
-    }
-    
-    /*int l;
-    if ((l = length(player.velocity)) > 500) {
-      player.velocity = Vector2<fixed_16_16>{player.velocity.x() / l * 500,
-                                             player.velocity.y() / l * 500};
-    }*/
-
-    player.position += player.velocity * fixed_16_16{dx};
-    player.velocity *= fixed_16_16{0.95f};
-
-    if (static_cast<float>(player.position.y()) >= base) {
-      player.position.y() = fixed_16_16{base};
-    }
+    input->store(input_bitset.to_ulong());
+    auto player = gs->getPlayer();
 
     sf::VertexArray rectangle(sf::Quads, 4);
     for (int i = 0; i < player.size(); ++i) {
