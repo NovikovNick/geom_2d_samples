@@ -56,8 +56,8 @@ int main() {
   sf::RenderWindow window(mode, "Generic Platformer", style, settings);
 
   // reduce the framerate to minimize laptop overheat :(
-  window.setFramerateLimit(24);
-  //window.setFramerateLimit(60);
+  // window.setFramerateLimit(24);
+  window.setFramerateLimit(60);
 
   sf::Font font;
   if (!font.loadFromFile("resources/default_fnt.otf")) {
@@ -78,13 +78,21 @@ int main() {
   auto t0 = steady_clock::now();
   auto t1 = steady_clock::now();
   float elapsed = 0, dx = 0;
-
   std::bitset<4> input_bitset(0);
-  auto fps = std::make_shared<std::atomic<int>>(3);
-  auto input = std::make_shared<std::atomic<int>>(0);
+
   auto gs = std::make_shared<math::GameState>();
-  math::GameLoop game_loop(gs, fps, input);
+  auto tick = std::make_shared<std::atomic<int>>(0);
+  auto tick_rate = std::make_shared<std::atomic<int>>(30);
+  auto frame_ratio = std::make_shared<std::atomic<float>>(0);
+  auto input = std::make_shared<std::atomic<int>>(0);
+  math::GameLoop game_loop(gs, tick, tick_rate, frame_ratio, input);
   std::thread(game_loop).detach();
+
+  int prev_tick = tick->load();
+  int curr_tick = prev_tick;
+  auto prev_player = gs->getPlayer();
+  auto curr_player = gs->getPlayer();
+  float t = frame_ratio->load();
 
   while (window.isOpen()) {
     t1 = steady_clock::now();
@@ -152,7 +160,7 @@ int main() {
         }
         case sf::Event::MouseWheelMoved: {
           auto [delta, x, y] = event.mouseWheel;
-          fps->fetch_add(delta);
+          tick_rate->fetch_add(delta);
           grid.update(delta);
           break;
         }
@@ -160,31 +168,53 @@ int main() {
     }
 
     input->store(input_bitset.to_ulong());
-    auto player = gs->getPlayer();
+
+    curr_tick = tick->load();
+    t = frame_ratio->load();
+    if (prev_tick != curr_tick) {
+      prev_tick = curr_tick;
+      prev_player = curr_player;
+      curr_player = gs->getPlayer();
+    }
+
+    debug("Tick#{}. {}. {:4.2f}%\n", curr_tick, tick_rate->load(), t);
 
     sf::VertexArray rectangle(sf::Quads, 4);
-    for (int i = 0; i < player.size(); ++i) {
-      auto pos = player[i];
-      rectangle[i].position = {static_cast<float>(pos.x()),
-                               static_cast<float>(pos.y())};
+    for (int i = 0; i < curr_player.size(); ++i) {
+      auto prev_x = static_cast<float>(prev_player[i].x());
+      auto prev_y = static_cast<float>(prev_player[i].y());
+      auto curr_x = static_cast<float>(curr_player[i].x());
+      auto curr_y = static_cast<float>(curr_player[i].y());
+
+      rectangle[i].position = {std::lerp(prev_x, curr_x, t),
+                               std::lerp(prev_y, curr_y, t)};
     }
-    // scalable grid
-    velocity_vector.update(
-        {static_cast<int>(player.position.x()),
-         static_cast<int>(player.position.y())},
-        {static_cast<int>(player.position.x() + player.velocity.x()),
-         static_cast<int>(player.position.y() + player.velocity.y())});
+
+    
+    { // scalable grid
+      auto prev_pos_x = static_cast<float>(prev_player.position.x());
+      auto prev_pos_y = static_cast<float>(prev_player.position.y());
+      auto prev_vel_x = static_cast<float>(prev_player.velocity.x());
+      auto prev_vel_y = static_cast<float>(prev_player.velocity.y());
+
+      auto curr_pos_x = static_cast<float>(curr_player.position.x());
+      auto curr_pos_y = static_cast<float>(curr_player.position.y());
+      auto curr_vel_x = static_cast<float>(curr_player.velocity.x());
+      auto curr_vel_y = static_cast<float>(curr_player.velocity.y());
+
+      curr_player = gs->getPlayer();
+      velocity_vector.update(
+          {std::lerp(prev_pos_x, curr_pos_x, t),
+           std::lerp(prev_pos_y, curr_pos_y, t)},
+          {std::lerp(prev_pos_x + prev_vel_x, curr_pos_x + curr_vel_x, t),
+           std::lerp(prev_pos_y + prev_vel_y, curr_pos_y + curr_vel_y, t)}
+      );
+    }
 
     {
       visualizer.update(
-          {
-              std::cos(elapsed * 4) * 64,
-              std::sin(elapsed * 4) * 64,
-          },
-          {
-              std::sin(elapsed) * 128,
-              std::cos(elapsed) * 128,
-          },
+          {std::cos(elapsed * 4) * 64, std::sin(elapsed * 4) * 64},
+          {std::sin(elapsed) * 128, std::cos(elapsed) * 128},
           visualizer.origin_);
     }
 

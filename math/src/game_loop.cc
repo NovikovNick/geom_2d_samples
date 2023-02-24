@@ -11,26 +11,42 @@ using clock = high_resolution_clock;
 using frame = duration<uint64_t, std::ratio<1, 60>>;
 
 GameLoop::GameLoop(std::shared_ptr<GameState> gs,
-                   std::shared_ptr<std::atomic<int>> fps,
+                   std::shared_ptr<std::atomic<int>> tick,
+                   std::shared_ptr<std::atomic<int>> tick_rate,
+                   std::shared_ptr<std::atomic<float>> frame_ration,
                    std::shared_ptr<std::atomic<int>> input)
-    : gs_(gs), fps_(fps), input_(input), running_(false), frame_(0){};
+    : gs_(gs),
+      frame_(0),
+      tick_(tick),
+      tick_rate_(tick_rate),
+      frame_ration_(frame_ration),
+      input_(input),
+      running_(false){};
 
 void GameLoop::operator()() {
   running_ = true;
-  frame_ = 0;
   auto t0 = clock::now();
   auto t1 = clock::now();
   auto t2 = clock::now();
-  auto t3 = clock::now();
   float dx = 0;
+  float ms = 0;
+  int tick;
+
   while (running_) {
-    auto new_frame_ = duration_cast<frame>(clock::now() - t0).count();
-    if (frame_ != new_frame_ && (frame_ = new_frame_) % fps_->load() == 0) {
-      t2 = clock::now();
-      dx = duration_cast<microseconds>(t2 - t3).count() / 1e6;
-      t3 = t2;
-      gs_->update(input_->load(), dx);
-      debug("Frame#{}. Update per sec: {}\n", frame_, fps_->load());
+    t1 = clock::now();
+    auto next_frame = duration_cast<frame>(t1 - t0).count();
+    ms = duration_cast<microseconds>(t1 - t2).count();
+    tick = 60 / std::clamp(tick_rate_->load(), 1, 60);
+    frame_ration_->store(ms / (1e6 / 60 * tick));
+
+    if (frame_ != next_frame) {
+      frame_ = next_frame;
+
+      if (next_frame % tick == 0) {
+        tick_->fetch_add(1);
+        gs_->update(input_->load(), tick / 60.f);
+        t2 = t1;
+      }
     }
   }
 };
