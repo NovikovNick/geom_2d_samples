@@ -11,7 +11,7 @@ class GameState {
   int jump_counter_;
  public:
   GameState();
-  void update(const int input, const float dx);
+  void update(const int input, const int frames);
   GameObject getPlayer();
 };
 

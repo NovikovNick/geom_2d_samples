@@ -82,17 +82,17 @@ int main() {
 
   auto gs = std::make_shared<math::GameState>();
   auto tick = std::make_shared<std::atomic<int>>(0);
-  auto tick_rate = std::make_shared<std::atomic<int>>(30);
-  auto frame_ratio = std::make_shared<std::atomic<float>>(0);
+  auto tick_rate = std::make_shared<std::atomic<int>>(60);
+  auto tick_ratio = std::make_shared<std::atomic<float>>(0);
   auto input = std::make_shared<std::atomic<int>>(0);
-  math::GameLoop game_loop(gs, tick, tick_rate, frame_ratio, input);
+  math::GameLoop game_loop(gs, tick, tick_rate, tick_ratio, input);
   std::thread(game_loop).detach();
 
   int prev_tick = tick->load();
   int curr_tick = prev_tick;
   auto prev_player = gs->getPlayer();
   auto curr_player = gs->getPlayer();
-  float t = frame_ratio->load();
+  float t = tick_ratio->load(); // requires for lerp
 
   while (window.isOpen()) {
     t1 = steady_clock::now();
@@ -170,14 +170,19 @@ int main() {
     input->store(input_bitset.to_ulong());
 
     curr_tick = tick->load();
-    t = frame_ratio->load();
+    t = tick_ratio->load();
     if (prev_tick != curr_tick) {
       prev_tick = curr_tick;
       prev_player = curr_player;
       curr_player = gs->getPlayer();
+      /*debug("\nTick#{}. {}. {:5.3f}dx {:4.2f}%\n", curr_tick, tick_rate->load(),
+            60.f / tick_rate->load() / 60, t);*/
+    } else {
+      /*debug("Tick#{}. {}. {:5.3f}dx {:4.2f}%\n", curr_tick, tick_rate->load(),
+            60.f / tick_rate->load() / 60, t);*/
     }
 
-    debug("Tick#{}. {}. {:4.2f}%\n", curr_tick, tick_rate->load(), t);
+    
 
     sf::VertexArray rectangle(sf::Quads, 4);
     for (int i = 0; i < curr_player.size(); ++i) {
