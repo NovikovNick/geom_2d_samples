@@ -66,7 +66,9 @@ int main() {
   }
 
   math::Info info(font, kFstColor);
-
+  const int fps_index = info.addFormat("FPS: {:.0f}\n");
+  const int dx_index = info.addFormat("Delta(sec): {:.6f}\n");
+  
   math::VectorProductVisualizer visualizer(font, kBGColor, kSndColor,
                                            kTrdColor);
   visualizer.update({0, -128}, {64, 0}, {0, 0});
@@ -100,8 +102,8 @@ int main() {
     elapsed += dx;
     t0 = t1;
 
-    info.update(Info::INDEX::FPS, 1 / dx);
-    info.update(Info::INDEX::DX, dx);
+    info.update(fps_index, 1 / dx);
+    info.update(dx_index, dx);
 
     sf::Event event;
     while (window.pollEvent(event)) {
@@ -222,16 +224,6 @@ int main() {
           {std::sin(elapsed) * 128, std::cos(elapsed) * 128},
           visualizer.origin_);
     }
-
-    info.update(Info::INDEX::DOT, visualizer.dot());
-    info.update(Info::INDEX::CROSS, visualizer.cross());
-    info.update(Info::INDEX::ANGLE, visualizer.angleDegree());
-    info.update(Info::INDEX::COS, visualizer.cos());
-    info.update(Info::INDEX::SIN, visualizer.sin());
-    info.update(Info::INDEX::LHS_ATAN, visualizer.lhsAtan2());
-    info.update(Info::INDEX::RHS_ATAN, visualizer.rhsAtan2());
-    info.update(Info::INDEX::LHS_LENGTH, visualizer.lhsLength());
-    info.update(Info::INDEX::RHS_LENGTH, visualizer.rhsLength());
 
     window.clear(kBGColor);
     window.draw(grid);
