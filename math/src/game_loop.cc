@@ -48,9 +48,6 @@ void GameLoop::operator()() {
 
       if (next_frame % frame_per_tick == 0) {
         tick_->fetch_add(1);
-        // debug("{}. {}\n", tick_rate, 1e6 / tick_rate);
-
-        // jump = 20 frames
         gs_->update(input_->load(), 1);
         t2 = t1;
       }

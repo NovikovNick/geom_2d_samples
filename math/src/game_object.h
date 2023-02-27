@@ -4,17 +4,25 @@
 #include <fpm/fixed.hpp>
 #include <vector>
 
+using FIXED = fpm::fixed_16_16;
+using VECTOR_2 = Eigen::Vector2<FIXED>;
+using VECTOR_3 = Eigen::Vector3<FIXED>;
+
 namespace math {
 
 class GameObject {
-  std::vector<Eigen::Vector2<fpm::fixed_16_16>> mesh;
+  std::vector<VECTOR_2> mesh;
+  int width_, height_;
 
  public:
-  Eigen::Vector2<fpm::fixed_16_16> position, velocity;
+  VECTOR_2 position, velocity;
 
-  GameObject(const std::vector<Eigen::Vector2<fpm::fixed_16_16>>& mesh);
+  GameObject(const int width, const int height,
+             const std::vector<VECTOR_2>& mesh);
 
-  Eigen::Vector3<fpm::fixed_16_16> operator[](const size_t index) const;
+  VECTOR_3 operator[](const size_t index) const;
+
+  std::pair<FIXED, FIXED> getProjectionMinMax(const int axis) const;
 
   size_t size() const;
 };

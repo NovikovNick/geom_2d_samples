@@ -35,17 +35,6 @@ const static sf::Color kFstColor(255, 100, 0);
 const static sf::Color kSndColor(255, 17, 17);
 const static sf::Color kTrdColor(255, 255, 255);
 
-inline int length(const Eigen::Vector2<fpm::fixed_16_16>& vector) {
-  return std::sqrt(std::pow(static_cast<int>(vector.x()), 2) +
-                   std::pow(static_cast<int>(vector.y()), 2));
-}
-
-Eigen::Vector2<fpm::fixed_16_16> normal(
-    const Eigen::Vector2<fpm::fixed_16_16>& vector) {
-  int l = length(vector);
-  if (l == 0) return {fixed_16_16{0}, fixed_16_16{0}};
-  return {vector.x() / l, vector.y() / l};
-}
 }  // namespace
 
 int main() {
@@ -68,7 +57,10 @@ int main() {
   math::Info info(font, kFstColor);
   const int fps_index = info.addFormat("FPS: {:.0f}\n");
   const int dx_index = info.addFormat("Delta(sec): {:.6f}\n");
-  
+  const int tick_index = info.addFormat("Tick#{:4d}({:2d})- {:4.2f}%\n");
+  const int mouse_index = info.addFormat("Mouse[{:4d},{:4d}]\n");
+  const int intersection_index = info.addFormat("Intersect[{:4d},{:4d}]\n");
+
   math::VectorProductVisualizer visualizer(font, kBGColor, kSndColor,
                                            kTrdColor);
   visualizer.update({0, -128}, {64, 0}, {0, 0});
@@ -89,12 +81,13 @@ int main() {
   auto input = std::make_shared<std::atomic<int>>(0);
   math::GameLoop game_loop(gs, tick, tick_rate, tick_ratio, input);
   std::thread(game_loop).detach();
+  math::GameObject plaform();
 
   int prev_tick = tick->load();
   int curr_tick = prev_tick;
   auto prev_player = gs->getPlayer();
   auto curr_player = gs->getPlayer();
-  float t = tick_ratio->load(); // requires for lerp
+  float t = tick_ratio->load();  // requires for lerp
 
   while (window.isOpen()) {
     t1 = steady_clock::now();
@@ -147,6 +140,7 @@ int main() {
           if (event.mouseButton.button == sf::Mouse::Left) {
             auto [_, x, y] = event.mouseButton;
             visualizer.update({x, y}, true);
+            debug("Clicked at: [{},{}]\n", x - x % 64, y - y % 64);
           }
           break;
         case sf::Event::MouseButtonReleased:
@@ -158,6 +152,9 @@ int main() {
         case sf::Event::MouseMoved: {
           auto [x, y] = event.mouseMove;
           visualizer.update({x, y});
+          info.update(mouse_index, x, y);
+          // plaform.position = {FIXED(x - x % 64), FIXED(y - y % 64)};
+          // gs->getPlatform().position = {FIXED(x), FIXED(y)};
           break;
         }
         case sf::Event::MouseWheelMoved: {
@@ -177,59 +174,70 @@ int main() {
       prev_tick = curr_tick;
       prev_player = curr_player;
       curr_player = gs->getPlayer();
-      /*debug("\nTick#{}. {}. {:5.3f}dx {:4.2f}%\n", curr_tick, tick_rate->load(),
-            60.f / tick_rate->load() / 60, t);*/
-    } else {
-      /*debug("Tick#{}. {}. {:5.3f}dx {:4.2f}%\n", curr_tick, tick_rate->load(),
-            60.f / tick_rate->load() / 60, t);*/
     }
+    info.update(tick_index, curr_tick, tick_rate->load(), t);
+    /*debug("Position: [{:8.3f};{:8.3f}]. Velocity: [{:.3f};{:.3f}]\n",
+          static_cast<float>(curr_player.position.x()),
+          static_cast<float>(curr_player.position.y()),
+          static_cast<float>(curr_player.velocity.x()),
+          static_cast<float>(curr_player.velocity.y()));*/
 
-    
-
-    sf::VertexArray rectangle(sf::Quads, 4);
+    sf::VertexArray player_shape(sf::Quads, 4);
     for (int i = 0; i < curr_player.size(); ++i) {
       auto prev_x = static_cast<float>(prev_player[i].x());
       auto prev_y = static_cast<float>(prev_player[i].y());
       auto curr_x = static_cast<float>(curr_player[i].x());
       auto curr_y = static_cast<float>(curr_player[i].y());
 
-      rectangle[i].position = {std::lerp(prev_x, curr_x, t),
-                               std::lerp(prev_y, curr_y, t)};
+      player_shape[i].position = {std::lerp(prev_x, curr_x, t),
+                                  std::lerp(prev_y, curr_y, t)};
     }
 
-    
-    { // scalable grid
-      auto prev_pos_x = static_cast<float>(prev_player.position.x());
-      auto prev_pos_y = static_cast<float>(prev_player.position.y());
-      auto prev_vel_x = static_cast<float>(prev_player.velocity.x());
-      auto prev_vel_y = static_cast<float>(prev_player.velocity.y());
+    auto plaform = gs->getPlatform();
+    auto [intersection_x, intersection_y] = isIntersect(curr_player, plaform);
+    bool intersect = intersection_x > FIXED{0} && intersection_y > FIXED{0};
 
-      auto curr_pos_x = static_cast<float>(curr_player.position.x());
-      auto curr_pos_y = static_cast<float>(curr_player.position.y());
-      auto curr_vel_x = static_cast<float>(curr_player.velocity.x());
-      auto curr_vel_y = static_cast<float>(curr_player.velocity.y());
+    info.update(intersection_index, static_cast<int>(intersection_x),
+                static_cast<int>(intersection_y));
+
+    sf::VertexArray platform_shape(sf::Quads, 4);
+    for (int i = 0; i < plaform.size(); ++i) {
+      platform_shape[i].position.x = static_cast<float>(plaform[i].x());
+      platform_shape[i].position.y = static_cast<float>(plaform[i].y());
+      platform_shape[i].color = intersect ? kSndColor : kFstColor;
+    }
+
+    {  // velocity vector
+      auto prev_pos = prev_player.position;
+      auto prev_vel = prev_player.velocity * FIXED{10};
+
+      auto curr_pos = curr_player.position;
+      auto curr_vel = curr_player.velocity * FIXED{10};
+
+      auto prev_pos_x = static_cast<float>(prev_pos.x());
+      auto prev_pos_y = static_cast<float>(prev_pos.y());
+      auto prev_vel_x = static_cast<float>(prev_vel.x());
+      auto prev_vel_y = static_cast<float>(prev_vel.y());
+
+      auto curr_pos_x = static_cast<float>(curr_pos.x());
+      auto curr_pos_y = static_cast<float>(curr_pos.y());
+      auto curr_vel_x = static_cast<float>(curr_vel.x());
+      auto curr_vel_y = static_cast<float>(curr_vel.y());
 
       curr_player = gs->getPlayer();
       velocity_vector.update(
           {std::lerp(prev_pos_x, curr_pos_x, t),
            std::lerp(prev_pos_y, curr_pos_y, t)},
           {std::lerp(prev_pos_x + prev_vel_x, curr_pos_x + curr_vel_x, t),
-           std::lerp(prev_pos_y + prev_vel_y, curr_pos_y + curr_vel_y, t)}
-      );
-    }
-
-    {
-      visualizer.update(
-          {std::cos(elapsed * 4) * 64, std::sin(elapsed * 4) * 64},
-          {std::sin(elapsed) * 128, std::cos(elapsed) * 128},
-          visualizer.origin_);
+           std::lerp(prev_pos_y + prev_vel_y, curr_pos_y + curr_vel_y, t)});
     }
 
     window.clear(kBGColor);
     window.draw(grid);
-    window.draw(visualizer);
+    // window.draw(visualizer);
     window.draw(info);
-    window.draw(rectangle);
+    window.draw(platform_shape);
+    window.draw(player_shape);
     window.draw(velocity_vector);
     window.display();
   }
