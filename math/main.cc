@@ -25,11 +25,6 @@ using namespace math;
 
 namespace {
 
-const static int kInputLeft = 0;
-const static int kInputRight = 1;
-const static int kInputUp = 2;
-const static int kInputDown = 3;
-
 const static sf::Color kBGColor(35, 35, 35);
 const static sf::Color kFstColor(255, 100, 0);
 const static sf::Color kSndColor(255, 17, 17);
@@ -40,7 +35,7 @@ const static sf::Color kTrdColor(255, 255, 255);
 int main() {
   sf::ContextSettings settings;
   settings.antialiasingLevel = 8;
-  auto mode = sf::VideoMode(900, 900);
+  auto mode = sf::VideoMode(896, 896);
   auto style = sf::Style::Default;
   sf::RenderWindow window(mode, "Generic Platformer", style, settings);
 
@@ -81,7 +76,6 @@ int main() {
   auto input = std::make_shared<std::atomic<int>>(0);
   math::GameLoop game_loop(gs, tick, tick_rate, tick_ratio, input);
   std::thread(game_loop).detach();
-  math::GameObject plaform();
 
   int prev_tick = tick->load();
   int curr_tick = prev_tick;
@@ -98,6 +92,7 @@ int main() {
     info.update(fps_index, 1 / dx);
     info.update(dx_index, dx);
 
+    input_bitset[kInputUp] = false;  // avoid multiple click 
     sf::Event event;
     while (window.pollEvent(event)) {
       switch (event.type) {
@@ -140,7 +135,7 @@ int main() {
           if (event.mouseButton.button == sf::Mouse::Left) {
             auto [_, x, y] = event.mouseButton;
             visualizer.update({x, y}, true);
-            debug("Clicked at: [{},{}]\n", x - x % 64, y - y % 64);
+            debug("FIXED({}), FIXED({})\n", x - x % 32, y - y % 32);
           }
           break;
         case sf::Event::MouseButtonReleased:
@@ -153,14 +148,14 @@ int main() {
           auto [x, y] = event.mouseMove;
           visualizer.update({x, y});
           info.update(mouse_index, x, y);
-          // plaform.position = {FIXED(x - x % 64), FIXED(y - y % 64)};
-          // gs->getPlatform().position = {FIXED(x), FIXED(y)};
+          gs->getPlatforms()[1].position = {FIXED(x - x % 32),
+                                            FIXED(y - y % 32)};
           break;
         }
         case sf::Event::MouseWheelMoved: {
           auto [delta, x, y] = event.mouseWheel;
           tick_rate->fetch_add(delta);
-          grid.update(delta);
+          // grid.update(delta);
           break;
         }
       }
@@ -176,11 +171,13 @@ int main() {
       curr_player = gs->getPlayer();
     }
     info.update(tick_index, curr_tick, tick_rate->load(), t);
-    /*debug("Position: [{:8.3f};{:8.3f}]. Velocity: [{:.3f};{:.3f}]\n",
+    /*
+    debug("Position: [{:8.3f};{:8.3f}]. Velocity: [{:.3f};{:.3f}]\n",
           static_cast<float>(curr_player.position.x()),
           static_cast<float>(curr_player.position.y()),
           static_cast<float>(curr_player.velocity.x()),
-          static_cast<float>(curr_player.velocity.y()));*/
+          static_cast<float>(curr_player.velocity.y()));
+    */
 
     sf::VertexArray player_shape(sf::Quads, 4);
     for (int i = 0; i < curr_player.size(); ++i) {
@@ -193,18 +190,15 @@ int main() {
                                   std::lerp(prev_y, curr_y, t)};
     }
 
-    auto plaform = gs->getPlatform();
-    auto [intersection_x, intersection_y] = isIntersect(curr_player, plaform);
-    bool intersect = intersection_x > FIXED{0} && intersection_y > FIXED{0};
-
-    info.update(intersection_index, static_cast<int>(intersection_x),
-                static_cast<int>(intersection_y));
-
-    sf::VertexArray platform_shape(sf::Quads, 4);
-    for (int i = 0; i < plaform.size(); ++i) {
-      platform_shape[i].position.x = static_cast<float>(plaform[i].x());
-      platform_shape[i].position.y = static_cast<float>(plaform[i].y());
-      platform_shape[i].color = intersect ? kSndColor : kFstColor;
+    std::vector<sf::VertexArray> platform_shapes;
+    for (const auto& platform : gs->getPlatforms()) {
+      sf::VertexArray platform_shape(sf::Quads, 4);
+      for (int i = 0; i < platform.size(); ++i) {
+        platform_shape[i].position.x = static_cast<float>(platform[i].x());
+        platform_shape[i].position.y = static_cast<float>(platform[i].y());
+        platform_shape[i].color = kFstColor;
+      }
+      platform_shapes.push_back(platform_shape);
     }
 
     {  // velocity vector
@@ -236,7 +230,7 @@ int main() {
     window.draw(grid);
     // window.draw(visualizer);
     window.draw(info);
-    window.draw(platform_shape);
+    for (const auto& it : platform_shapes) window.draw(it);
     window.draw(player_shape);
     window.draw(velocity_vector);
     window.display();

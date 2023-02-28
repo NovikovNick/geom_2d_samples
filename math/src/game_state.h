@@ -2,22 +2,34 @@
 #define GEOM_2D_MATH_GAME_STATE_H
 #include <Eigen/Dense>
 #include <fpm/fixed.hpp>
+#include <vector>
 
 #include "game_object.h"
 
-
 namespace math {
 
+enum class PlayerState { IDLE, RUN, JUMP_UP, JUMP_DOWN };
+
 class GameState {
+  std::mutex mutex_;
+
+  GameObject player_;
+  PlayerState state_;
   uint64_t frame_;
-  GameObject player_, plaform_;
-  int jump_counter_;
-  std::mutex player_mutex_;
+  bool on_platform_;
+  // direction left/right
+
+  std::vector<GameObject> platforms_;
+
  public:
   GameState();
   void update(const int input, const int frames);
   GameObject getPlayer();
-  GameObject& getPlatform();
+  std::vector<GameObject>& getPlatforms();
+
+ private:
+  bool checkPlatform();
+  void updateFrame(const PlayerState state);
 };
 
 };      // namespace math

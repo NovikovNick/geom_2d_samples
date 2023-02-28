@@ -7,6 +7,31 @@
 using FIXED = fpm::fixed_16_16;
 using VECTOR_2 = Eigen::Vector2<FIXED>;
 using VECTOR_3 = Eigen::Vector3<FIXED>;
+namespace {
+constexpr int sum(const int n) {
+  int res = 0;
+  for (int i = 1; i <= n; ++i) res += i;
+  return res;
+}
+
+const static FIXED kZero{0};
+const static FIXED kOne{1};
+
+const static int kInputLeft = 0;
+const static int kInputRight = 1;
+const static int kInputUp = 2;
+const static int kInputDown = 3;
+
+// braking:               4  frame
+const static int kJumpHeight = 128;
+const static int kJump = 12;
+const static int kAccelerationX = 1;
+const static float kAccelerationGravity = 1.5f;
+const static int kMaxVelocityX = 12;
+const static int kMaxVelocityFall = 20;
+const static FIXED kJumpDelta = FIXED{kJumpHeight} / FIXED{sum(kJump)};
+
+}  // namespace
 
 namespace math {
 
