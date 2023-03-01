@@ -13,6 +13,8 @@
 #include "src/game_state.h"
 #include "src/info.cc"
 #include "src/info.h"
+#include "src/player_shape.cc"
+#include "src/player_shape.h"
 #include "src/scalable_grid.cc"
 #include "src/scalable_grid.h"
 #include "src/util.h"
@@ -60,8 +62,6 @@ int main() {
                                            kTrdColor);
   visualizer.update({0, -128}, {64, 0}, {0, 0});
 
-  math::VectorShape velocity_vector(kSndColor);
-
   math::ScalableGrid grid(32);
 
   auto t0 = steady_clock::now();
@@ -73,15 +73,18 @@ int main() {
   auto tick = std::make_shared<std::atomic<int>>(0);
   auto tick_rate = std::make_shared<std::atomic<int>>(60);
   auto tick_ratio = std::make_shared<std::atomic<float>>(0);
-  auto input = std::make_shared<std::atomic<int>>(0);
-  math::GameLoop game_loop(gs, tick, tick_rate, tick_ratio, input);
+  auto p0_input = std::make_shared<std::atomic<int>>(0);
+  auto p1_input = std::make_shared<std::atomic<int>>(0);
+  math::GameLoop game_loop(gs, tick, tick_rate, tick_ratio, p0_input, p1_input);
   std::thread(game_loop).detach();
 
   int prev_tick = tick->load();
   int curr_tick = prev_tick;
-  auto prev_player = gs->getPlayer();
-  auto curr_player = gs->getPlayer();
+
+  PlayerShape p0{kTrdColor, kSndColor, gs->getPlayer(0)};
+  PlayerShape p1{kTrdColor, kSndColor, gs->getPlayer(1)};
   float t = tick_ratio->load();  // requires for lerp
+  bool fst_player_active = true;
 
   while (window.isOpen()) {
     t1 = steady_clock::now();
@@ -92,7 +95,6 @@ int main() {
     info.update(fps_index, 1 / dx);
     info.update(dx_index, dx);
 
-    input_bitset[kInputUp] = false;  // avoid multiple click 
     sf::Event event;
     while (window.pollEvent(event)) {
       switch (event.type) {
@@ -136,6 +138,7 @@ int main() {
             auto [_, x, y] = event.mouseButton;
             visualizer.update({x, y}, true);
             debug("FIXED({}), FIXED({})\n", x - x % 32, y - y % 32);
+            fst_player_active = !fst_player_active;
           }
           break;
         case sf::Event::MouseButtonReleased:
@@ -161,34 +164,22 @@ int main() {
       }
     }
 
-    input->store(input_bitset.to_ulong());
+    if (fst_player_active) {
+      p0_input->store(input_bitset.to_ulong());
+    } else {
+      p1_input->store(input_bitset.to_ulong());
+    }
 
     curr_tick = tick->load();
     t = tick_ratio->load();
     if (prev_tick != curr_tick) {
       prev_tick = curr_tick;
-      prev_player = curr_player;
-      curr_player = gs->getPlayer();
+      p0.update(gs->getPlayer(0));
+      p1.update(gs->getPlayer(1));
     }
+    p0.update(t);
+    p1.update(t);
     info.update(tick_index, curr_tick, tick_rate->load(), t);
-    /*
-    debug("Position: [{:8.3f};{:8.3f}]. Velocity: [{:.3f};{:.3f}]\n",
-          static_cast<float>(curr_player.position.x()),
-          static_cast<float>(curr_player.position.y()),
-          static_cast<float>(curr_player.velocity.x()),
-          static_cast<float>(curr_player.velocity.y()));
-    */
-
-    sf::VertexArray player_shape(sf::Quads, 4);
-    for (int i = 0; i < curr_player.size(); ++i) {
-      auto prev_x = static_cast<float>(prev_player[i].x());
-      auto prev_y = static_cast<float>(prev_player[i].y());
-      auto curr_x = static_cast<float>(curr_player[i].x());
-      auto curr_y = static_cast<float>(curr_player[i].y());
-
-      player_shape[i].position = {std::lerp(prev_x, curr_x, t),
-                                  std::lerp(prev_y, curr_y, t)};
-    }
 
     std::vector<sf::VertexArray> platform_shapes;
     for (const auto& platform : gs->getPlatforms()) {
@@ -201,38 +192,13 @@ int main() {
       platform_shapes.push_back(platform_shape);
     }
 
-    {  // velocity vector
-      auto prev_pos = prev_player.position;
-      auto prev_vel = prev_player.velocity * FIXED{10};
-
-      auto curr_pos = curr_player.position;
-      auto curr_vel = curr_player.velocity * FIXED{10};
-
-      auto prev_pos_x = static_cast<float>(prev_pos.x());
-      auto prev_pos_y = static_cast<float>(prev_pos.y());
-      auto prev_vel_x = static_cast<float>(prev_vel.x());
-      auto prev_vel_y = static_cast<float>(prev_vel.y());
-
-      auto curr_pos_x = static_cast<float>(curr_pos.x());
-      auto curr_pos_y = static_cast<float>(curr_pos.y());
-      auto curr_vel_x = static_cast<float>(curr_vel.x());
-      auto curr_vel_y = static_cast<float>(curr_vel.y());
-
-      curr_player = gs->getPlayer();
-      velocity_vector.update(
-          {std::lerp(prev_pos_x, curr_pos_x, t),
-           std::lerp(prev_pos_y, curr_pos_y, t)},
-          {std::lerp(prev_pos_x + prev_vel_x, curr_pos_x + curr_vel_x, t),
-           std::lerp(prev_pos_y + prev_vel_y, curr_pos_y + curr_vel_y, t)});
-    }
-
     window.clear(kBGColor);
     window.draw(grid);
     // window.draw(visualizer);
     window.draw(info);
     for (const auto& it : platform_shapes) window.draw(it);
-    window.draw(player_shape);
-    window.draw(velocity_vector);
+    window.draw(p0);
+    window.draw(p1);
     window.display();
   }
   return 0;

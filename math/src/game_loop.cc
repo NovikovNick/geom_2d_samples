@@ -14,13 +14,15 @@ GameLoop::GameLoop(std::shared_ptr<GameState> gs,
                    std::shared_ptr<std::atomic<int>> tick,
                    std::shared_ptr<std::atomic<int>> tick_rate,
                    std::shared_ptr<std::atomic<float>> tick_ratio,
-                   std::shared_ptr<std::atomic<int>> input)
+                   std::shared_ptr<std::atomic<int>> p0_input,
+                   std::shared_ptr<std::atomic<int>> p1_input)
     : gs_(gs),
       frame_(0),
       tick_(tick),
       tick_rate_(tick_rate),
       tick_ratio_(tick_ratio),
-      input_(input),
+      p0_input_(p0_input),
+      p1_input_(p1_input),
       running_(false){};
 
 void GameLoop::operator()() {
@@ -48,7 +50,7 @@ void GameLoop::operator()() {
 
       if (next_frame % frame_per_tick == 0) {
         tick_->fetch_add(1);
-        gs_->update(input_->load(), 1);
+        gs_->update(p0_input_->load(), p1_input_->load(), 1);
         t2 = t1;
       }
     }

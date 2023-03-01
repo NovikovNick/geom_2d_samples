@@ -5,31 +5,23 @@
 #include <vector>
 
 #include "game_object.h"
+#include "player.h"
 
 namespace math {
 
-enum class PlayerState { IDLE, RUN, JUMP_UP, JUMP_DOWN };
-
 class GameState {
   std::mutex mutex_;
-
-  GameObject player_;
-  PlayerState state_;
-  uint64_t frame_;
-  bool on_platform_;
-  // direction left/right
-
+  std::vector<Player> players_;
   std::vector<GameObject> platforms_;
 
  public:
   GameState();
-  void update(const int input, const int frames);
-  GameObject getPlayer();
+  void update(const int p0_input, const int p1_input, const int frames);
+  GameObject getPlayer(const int player_id);
   std::vector<GameObject>& getPlatforms();
 
  private:
-  bool checkPlatform();
-  void updateFrame(const PlayerState state);
+  bool checkPlatform(const int player_id);
 };
 
 };      // namespace math
