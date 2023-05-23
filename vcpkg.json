@@ -1,0 +1,9 @@
+{
+  "name": "geometry-samples",
+  "version-string": "latest",
+  "dependencies": [
+    "eigen3",
+    "sfml",
+    "imgui-sfml"
+  ]
+}
